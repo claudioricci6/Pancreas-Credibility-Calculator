@@ -4,12 +4,12 @@ from scipy.stats import beta
 
 
 st.set_page_config(
-    page_title="Pancreas Credibility Calculator",
+    page_title="Pancreatic Resection Mortality Credibility Calculator",
     page_icon="🧮",
     layout="centered"
 )
 
-st.title("Pancreas Credibility Calculator")
+st.title("Pancreatic Resection Mortality Credibility Calculator)
 st.caption("Credibility-based benchmarking framework for pancreatic surgery outcomes")
 
 st.markdown(
