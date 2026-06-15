@@ -10,14 +10,34 @@ st.set_page_config(
 )
 
 st.title("Pancreas Credibility Calculator")
-st.caption("Credibility-based benchmarking for pancreatic surgery outcomes")
+st.caption("Credibility-based benchmarking framework for pancreatic surgery outcomes")
 
 st.markdown(
     """
-Enter center volume and crude mortality to estimate credibility of performance
-against a fixed mortality benchmark.
+This tool estimates whether a hospital’s pancreatic surgery mortality is
+**credibly below**, **indeterminate**, or **credibly above** a fixed benchmark
+using a Bayesian beta-binomial framework.
 """
 )
+
+# ============================================================
+# METHODOLOGICAL WARNING (IMPORTANT)
+# ============================================================
+
+st.warning(
+    """
+⚠️ This model was developed and validated using **3-year aggregated data (2022–2024 PNE)**.
+
+For methodological consistency and validity of CCS estimates, users are strongly recommended
+to input **3-year cumulative volume and mortality** rather than annual or partial-period data.
+
+Shorter observation periods may lead to unstable credibility estimates.
+"""
+)
+
+# ============================================================
+# SIDEBAR - MODEL SETTINGS
+# ============================================================
 
 st.sidebar.header("Model settings")
 
@@ -40,7 +60,7 @@ delta = st.sidebar.number_input(
 ) / 100
 
 national_mortality = st.sidebar.number_input(
-    "National mortality prior (%)",
+    "National mortality prior (%) (PNE 2022–2024 default)",
     min_value=0.1,
     max_value=50.0,
     value=8.2,
@@ -49,7 +69,7 @@ national_mortality = st.sidebar.number_input(
 ) / 100
 
 m_prior = st.sidebar.number_input(
-    "Prior effective sample size",
+    "Prior effective sample size (3-year equivalent)",
     min_value=1.0,
     max_value=500.0,
     value=25.0,
@@ -66,42 +86,36 @@ threshold = st.sidebar.number_input(
     format="%.2f"
 )
 
-st.sidebar.caption(
-    "Default settings were validated using Italian PNE pancreatic resection data, 2022–2024. "
-    "The default national mortality prior is 8.2%."
-)
+# ============================================================
+# INPUT SECTION
+# ============================================================
 
-st.header("Center input")
+st.header("Center input (3-year cumulative data recommended)")
 
 volume_period = st.number_input(
-    "Number of procedures",
-    min_value=0.0,
-    value=None,
+    "Number of procedures (preferably 3-year total)",
+    min_value=1.0,
+    value=50.0,
     step=0.1,
-    format="%.1f",
-    placeholder="Enter number of procedures"
+    format="%.1f"
 )
 
 crude_mortality_percent = st.number_input(
-    "Observed crude mortality (%)",
+    "Observed crude mortality (%) (3-year period)",
     min_value=0.0,
     max_value=100.0,
-    value=None,
+    value=5.0,
     step=0.1,
-    format="%.1f",
-    placeholder="Enter crude mortality"
+    format="%.1f"
 )
 
 calculate = st.button("Calculate", type="primary")
 
-if calculate:
-    if volume_period is None or crude_mortality_percent is None:
-        st.error("Please enter both number of procedures and crude mortality.")
-        st.stop()
+# ============================================================
+# CALCULATION
+# ============================================================
 
-    if volume_period <= 0:
-        st.error("Number of procedures must be greater than 0.")
-        st.stop()
+if calculate:
 
     crude_mortality = crude_mortality_percent / 100
     estimated_deaths = round(volume_period * crude_mortality)
@@ -113,33 +127,43 @@ if calculate:
     beta_post = b + volume_period - estimated_deaths
 
     bayesian_adjusted_mortality = alpha_post / (alpha_post + beta_post)
+
     ccs = beta.cdf(benchmark, alpha_post, beta_post)
+
     ppm = 1 - beta.cdf(benchmark + delta, alpha_post, beta_post)
 
     db = benchmark - bayesian_adjusted_mortality
+
     cas = ccs * max(0, db)
     cas_percent = cas * 100
 
+    # ============================================================
+    # CLASSIFICATION
+    # ============================================================
+
     if ccs >= threshold:
         classification = "Credibly better than benchmark"
-        classification_type = "success"
+        tag = "success"
     elif ppm >= threshold:
         classification = "Credibly worse than threshold"
-        classification_type = "error"
+        tag = "error"
     else:
         classification = "Indeterminate"
-        classification_type = "warning"
+        tag = "warning"
+
+    # ============================================================
+    # OUTPUT
+    # ============================================================
 
     st.info(
-        f"Estimated deaths used in the model: **{estimated_deaths}** "
-        f"from {volume_period:.1f} procedures."
+        f"Estimated deaths (from 3-year input): **{estimated_deaths}**"
     )
 
     st.header("Classification")
 
-    if classification_type == "success":
+    if tag == "success":
         st.success(classification)
-    elif classification_type == "error":
+    elif tag == "error":
         st.error(classification)
     else:
         st.warning(classification)
@@ -154,77 +178,33 @@ if calculate:
         st.metric("PPM", f"{ppm:.3f}")
 
     with col2:
-        st.metric("DB", f"{db * 100:.1f} pp")
+        st.metric("DB (pp)", f"{db * 100:.1f}")
         st.metric("CAS", f"{cas_percent:.2f}")
         st.metric("Benchmark", f"{benchmark * 100:.1f}%")
 
-    results = pd.DataFrame(
-        {
-            "Metric": [
-                "Bayesian-adjusted mortality",
-                "CCS",
-                "PPM",
-                "DB",
-                "CAS",
-                "Classification",
-            ],
-            "Value": [
-                f"{bayesian_adjusted_mortality * 100:.1f}%",
-                f"{ccs:.3f}",
-                f"{ppm:.3f}",
-                f"{db * 100:.1f} percentage points",
-                f"{cas_percent:.2f}",
-                classification,
-            ],
-        }
-    )
-
-    st.table(results)
-
-    st.subheader("Metric guide")
+    st.subheader("Interpretation")
 
     st.markdown(
         f"""
-**CCS**: probability that true mortality is below **{benchmark * 100:.1f}%**.  
-**PPM**: probability that true mortality exceeds **{(benchmark + delta) * 100:.1f}%**.  
-**DB**: benchmark minus Bayesian-adjusted mortality. Positive values favor the center.  
-**CAS**: CCS × max(0, DB), expressed in percentage-point units.
+- **CCS** = probability that true mortality is below {benchmark*100:.1f}%
+- **PPM** = probability that true mortality exceeds {(benchmark+delta)*100:.1f}%
+- **DB** = difference from benchmark (5% − adjusted mortality)
+- **CAS** = credibility-weighted favorable signal
 
-**CAS interpretation:** 0 = no favorable credible advantage; <1 = weak or marginal signal; ≥1 = substantial credible favorable signal.
+**CAS interpretation:**
+- 0 → no credible advantage  
+- <1 → weak or marginal signal (possible dilution zone)  
+- ≥1 → substantial credible favorable signal
 """
     )
 
-    st.subheader("Plain-language interpretation")
+    st.divider()
 
-    if classification_type == "success":
-        st.success(
-            f"The center has at least {threshold * 100:.0f}% posterior probability "
-            f"of being below the {benchmark * 100:.1f}% benchmark."
-        )
-    elif classification_type == "error":
-        st.error(
-            f"The center has at least {threshold * 100:.0f}% posterior probability "
-            f"of exceeding the {(benchmark + delta) * 100:.1f}% threshold."
-        )
-    else:
-        st.warning(
-            "The data do not provide enough posterior evidence to classify the center "
-            "as credibly better or credibly worse."
-        )
+    st.caption(
+        "This model was developed and validated using 3-year aggregated PNE data (2022–2024). "
+        "Use of shorter observation periods may reduce statistical validity of CCS estimates."
+    )
 
-st.divider()
-
-st.caption(
-    "Default settings can be modified by the user. The default configuration was developed "
-    "and validated using the Italian National Outcomes Program (PNE) pancreatic resection dataset, "
-    "2022–2024. The national mortality prior default of 8.2% corresponds to the observed Italian "
-    "national 90-day mortality in that dataset."
-)
-
-st.caption(
-    "Research use only. This calculator does not perform patient-level case-mix adjustment."
-)
-
-st.caption(
-    "All rights reserved © Prof. Claudio Ricci, University of Bologna."
-)
+    st.caption(
+        "All rights reserved © Prof. Claudio Ricci, University of Bologna."
+    )
