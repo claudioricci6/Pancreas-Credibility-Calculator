@@ -4,17 +4,17 @@ from scipy.stats import beta
 
 
 st.set_page_config(
-    page_title="Pancreatic Resection Mortality Credibility Calculator",
+    page_title="Pancreatic Resection 90-day Mortality Credibility Calculator",
     page_icon="🧮",
     layout="centered"
 )
 
-st.title("Pancreatic Resection Mortality Credibility Calculator")
+st.title("Pancreatic Resection 90-day Mortality Credibility Calculator")
 st.caption("Credibility-based benchmarking framework for pancreatic surgery outcomes")
 
 st.markdown(
     """
-This tool estimates whether a hospital’s pancreatic surgery mortality is
+This tool estimates whether a hospital’s pancreatic surgery 90-day mortality is
 **credibly below**, **indeterminate**, or **credibly above** a fixed benchmark
 using a Bayesian beta-binomial framework.
 """
@@ -29,7 +29,7 @@ st.warning(
 ⚠️ This model was developed and validated using **3-year aggregated data (2022–2024 PNE)**.
 
 For methodological consistency and validity of CCS estimates, users are strongly recommended
-to input **3-year cumulative volume and mortality** rather than annual or partial-period data.
+to input **3-year cumulative volume and 90-day mortality** rather than annual or partial-period data.
 
 Shorter observation periods may lead to unstable credibility estimates.
 """
@@ -42,7 +42,7 @@ Shorter observation periods may lead to unstable credibility estimates.
 st.sidebar.header("Model settings")
 
 benchmark = st.sidebar.number_input(
-    "Benchmark mortality (%)",
+    "Benchmark 90-day mortality (%)",
     min_value=0.1,
     max_value=50.0,
     value=5.0,
@@ -60,7 +60,7 @@ delta = st.sidebar.number_input(
 ) / 100
 
 national_mortality = st.sidebar.number_input(
-    "National mortality prior (%) (PNE 2022–2024 default)",
+    "National 90-day mortality prior (%) (PNE 2022–2024 default)",
     min_value=0.1,
     max_value=50.0,
     value=8.2,
@@ -101,7 +101,7 @@ volume_period = st.number_input(
 )
 
 crude_mortality_percent = st.number_input(
-    "Observed crude mortality (%) (3-year period)",
+    "Observed crude 90-day mortality (%) (3-year period)",
     min_value=0.0,
     max_value=100.0,
     value=5.0,
@@ -173,7 +173,7 @@ if calculate:
     col1, col2 = st.columns(2)
 
     with col1:
-        st.metric("Bayesian-adjusted mortality", f"{bayesian_adjusted_mortality * 100:.1f}%")
+        st.metric("Bayesian-adjusted 90-day mortality", f"{bayesian_adjusted_mortality * 100:.1f}%")
         st.metric("CCS", f"{ccs:.3f}")
         st.metric("PPM", f"{ppm:.3f}")
 
@@ -186,9 +186,9 @@ if calculate:
 
     st.markdown(
         f"""
-- **CCS** = probability that true mortality is below {benchmark*100:.1f}%
-- **PPM** = probability that true mortality exceeds {(benchmark+delta)*100:.1f}%
-- **DB** = difference from benchmark (5% − adjusted mortality)
+- **CCS** = probability that true 90-day mortality is below {benchmark*100:.1f}%
+- **PPM** = probability that true 90-day mortality exceeds {(benchmark+delta)*100:.1f}%
+- **DB** = difference from benchmark (5% − adjusted 90-day mortality)
 - **CAS** = credibility-weighted favorable signal
 
 **CAS interpretation:**
