@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 import streamlit as st
 from scipy.stats import beta
@@ -15,8 +14,11 @@ st.caption("A credibility-based benchmarking tool for pancreatic surgery outcome
 
 st.markdown(
     """
-This tool estimates whether a center's observed pancreatic surgery mortality is
+This calculator estimates whether a center's observed pancreatic surgery mortality is
 **credibly below**, **indeterminate**, or **credibly above** a predefined mortality benchmark.
+
+Default settings were derived and validated using the Italian National Outcomes Program
+(PNE) pancreatic resection dataset, 2022–2024.
 """
 )
 
@@ -41,7 +43,7 @@ delta = st.sidebar.number_input(
 ) / 100
 
 national_mortality = st.sidebar.number_input(
-    "Observed national mortality used for prior (%)",
+    "National mortality prior (%) — default: Italian PNE 2022–2024",
     min_value=0.1,
     max_value=50.0,
     value=8.2,
@@ -65,6 +67,18 @@ threshold = st.sidebar.number_input(
     value=0.80,
     step=0.01,
     format="%.2f"
+)
+
+st.sidebar.markdown(
+    """
+**Default validated setting**
+
+- Benchmark: 5%
+- Underperformance threshold: 6%
+- National mortality prior: 8.2%
+- Prior effective sample size: 25
+- Credibility threshold: 0.80
+"""
 )
 
 st.header("Center input")
@@ -103,11 +117,12 @@ beta_post = b + volume_period - estimated_deaths
 bayesian_adjusted_mortality = alpha_post / (alpha_post + beta_post)
 
 ccs = beta.cdf(benchmark, alpha_post, beta_post)
+
 ppm = 1 - beta.cdf(benchmark + delta, alpha_post, beta_post)
 
 db = benchmark - bayesian_adjusted_mortality
-cas = ccs * max(0, db)
 
+cas = ccs * max(0, db)
 cas_percent = cas * 100
 
 if ccs >= threshold:
@@ -131,32 +146,14 @@ st.header("Results")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.metric(
-        "Bayesian-adjusted mortality",
-        f"{bayesian_adjusted_mortality * 100:.1f}%"
-    )
-    st.metric(
-        "CCS",
-        f"{ccs:.3f}"
-    )
-    st.metric(
-        "PPM",
-        f"{ppm:.3f}"
-    )
+    st.metric("Bayesian-adjusted mortality", f"{bayesian_adjusted_mortality * 100:.1f}%")
+    st.metric("CCS", f"{ccs:.3f}")
+    st.metric("PPM", f"{ppm:.3f}")
 
 with col2:
-    st.metric(
-        "Difference from benchmark",
-        f"{db * 100:.1f} pp"
-    )
-    st.metric(
-        "Credible Advantage Signal",
-        f"{cas_percent:.2f}"
-    )
-    st.metric(
-        "Benchmark",
-        f"{benchmark * 100:.1f}%"
-    )
+    st.metric("Difference from benchmark", f"{db * 100:.1f} pp")
+    st.metric("Credible Advantage Signal", f"{cas_percent:.2f}")
+    st.metric("Benchmark", f"{benchmark * 100:.1f}%")
 
 results = pd.DataFrame(
     {
@@ -185,30 +182,41 @@ st.header("How to interpret the metrics")
 
 st.markdown(
     f"""
-**CCS** is the probability that the center's true mortality is below the fixed benchmark of **{benchmark * 100:.1f}%**.
+**CCS — Center Credibility Score**
 
-- CCS ≥ {threshold:.2f}: credibly below benchmark
-- CCS < {threshold:.2f}: not enough credibility to be considered better
+CCS is the posterior probability that the center's true mortality is below the fixed benchmark of **{benchmark * 100:.1f}%**.
 
-**PPM** is the probability that the center's true mortality exceeds **{(benchmark + delta) * 100:.1f}%**.
+- **CCS ≥ {threshold:.2f}**: credibly below benchmark.
+- **CCS < {threshold:.2f}**: not enough credibility to be considered better.
 
-- PPM ≥ {threshold:.2f}: credibly worse than threshold
-- PPM < {threshold:.2f}: not enough credibility to be considered worse
+**PPM — Posterior Probability of Mortality**
 
-**DB** is the difference from benchmark:
+PPM is the posterior probability that the center's true mortality exceeds **{(benchmark + delta) * 100:.1f}%**.
+
+- **PPM ≥ {threshold:.2f}**: credibly worse than threshold.
+- **PPM < {threshold:.2f}**: not enough credibility to be considered worse.
+
+**DB — Difference from Benchmark**
+
+DB is calculated as:
 
 `DB = benchmark - Bayesian-adjusted mortality`
 
-- positive DB: mortality below benchmark
-- negative DB: mortality above benchmark
+- Positive DB: mortality below benchmark.
+- Negative DB: mortality above benchmark.
 
-**CAS** is the Credible Advantage Signal:
+**CAS — Credible Advantage Signal**
+
+CAS is calculated as:
 
 `CAS = CCS × max(0, DB)`
 
-CAS combines **credibility** and **magnitude of advantage**.  
-A CAS of 0 means that there is no credible favorable advantage over the benchmark.  
-Higher CAS values indicate a stronger favorable signal.
+CAS combines **credibility** and **magnitude of favorable advantage**.  
+It is expressed in percentage-point units.
+
+- **CAS = 0**: no favorable credible advantage.
+- **CAS < 1**: weak or marginal favorable signal; possible dilution if DB is positive but small.
+- **CAS ≥ 1**: substantial credible favorable signal.
 """
 )
 
@@ -233,11 +241,19 @@ else:
 st.divider()
 
 st.caption(
-    "Model developed from the Italian National Outcomes Program (PNE) pancreatic surgery dataset. "
-    "All rights reserved © Prof. Claudio Ricci, University of Bologna."
+    "The model settings can be modified by the user. The default configuration was developed "
+    "and validated using the Italian National Outcomes Program (PNE) pancreatic resection dataset, "
+    "2022–2024. The national mortality prior default of 8.2% corresponds to the observed Italian "
+    "national 90-day mortality in that dataset."
 )
 
 st.caption(
     "This calculator is intended for research and methodological use only. "
-    "It does not perform patient-level case-mix adjustment and should not be used as a standalone clinical quality assessment tool."
+    "It does not perform patient-level case-mix adjustment and should not be used as a standalone "
+    "clinical quality assessment tool."
+)
+
+st.caption(
+    "Model developed from the Italian National Outcomes Program (PNE) pancreatic surgery dataset. "
+    "All rights reserved © Prof. Claudio Ricci, University of Bologna."
 )
