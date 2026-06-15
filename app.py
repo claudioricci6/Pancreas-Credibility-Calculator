@@ -60,7 +60,7 @@ delta = st.sidebar.number_input(
 ) / 100
 
 national_mortality = st.sidebar.number_input(
-    "National 90-day mortality prior (%) (PNE 2022–2024 default)",
+    "Reference national 90-day mortality (%)",
     min_value=0.1,
     max_value=50.0,
     value=8.2,
@@ -68,13 +68,21 @@ national_mortality = st.sidebar.number_input(
     format="%.1f"
 ) / 100
 
+st.sidebar.caption(
+    "Default: 8.2%, corresponding to the observed Italian national 90-day mortality after pancreatic resection in PNE 2022–2024."
+)
+
 m_prior = st.sidebar.number_input(
-    "Prior effective sample size (3-year equivalent)",
+    "Weight of national reference data",
     min_value=1.0,
     max_value=500.0,
     value=25.0,
     step=0.1,
     format="%.1f"
+)
+
+st.sidebar.caption(
+    "Default: 25 procedures over 3 years. This stabilizes estimates mainly in very-low-volume centers while allowing center data to dominate as volume increases."
 )
 
 threshold = st.sidebar.number_input(
